@@ -1,0 +1,366 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          UserRole
+  status        UserStatus     @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  resident      Resident?
+
+  @@index([role])
+  @@index([status])
+}
+
+model Block {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  houses    House[]
+  iplRates  IplRate[]
+}
+
+model House {
+  id           String      @id @default(uuid())
+  houseNumber  String
+  blockId      String
+  propertyType String?
+  landArea     Decimal?    @db.Decimal(10, 2)
+  buildingArea Decimal?    @db.Decimal(10, 2)
+  status       HouseStatus @default(OWNER_OCCUPIED)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  complaints   Complaint[]
+  block        Block       @relation(fields: [blockId], references: [id])
+  invoices     Invoice[]
+  residents    Resident[]
+
+  @@unique([blockId, houseNumber])
+  @@index([blockId])
+  @@index([status])
+}
+
+model Resident {
+  id         String      @id @default(uuid())
+  userId     String?     @unique
+  houseId    String
+  fullName   String
+  phone      String?
+  email      String?
+  joinedAt   DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  complaints Complaint[]
+  invoices   Invoice[]
+  payments   Payment[]
+  house      House       @relation(fields: [houseId], references: [id])
+  user       User?       @relation(fields: [userId], references: [id])
+
+  @@index([houseId])
+  @@index([fullName])
+}
+
+model IplRate {
+  id            String    @id @default(uuid())
+  blockId       String
+  name          String
+  amount        Decimal   @db.Decimal(14, 2)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  invoices      Invoice[]
+  block         Block     @relation(fields: [blockId], references: [id])
+
+  @@index([blockId])
+  @@index([effectiveFrom])
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  houseId       String
+  residentId    String?
+  iplRateId     String?
+  periodMonth   Int
+  periodYear    Int
+  iplAmount     Decimal       @db.Decimal(14, 2)
+  additionalFee Decimal       @default(0) @db.Decimal(14, 2)
+  penalty       Decimal       @default(0) @db.Decimal(14, 2)
+  discount      Decimal       @default(0) @db.Decimal(14, 2)
+  totalAmount   Decimal       @db.Decimal(14, 2)
+  dueDate       DateTime
+  paidAt        DateTime?
+  status        InvoiceStatus @default(UNPAID)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  house         House         @relation(fields: [houseId], references: [id])
+  iplRate       IplRate?      @relation(fields: [iplRateId], references: [id])
+  resident      Resident?     @relation(fields: [residentId], references: [id])
+  items         InvoiceItem[]
+  payments      Payment[]
+  receipt       Receipt?
+
+  @@unique([houseId, periodMonth, periodYear])
+  @@index([status])
+  @@index([dueDate])
+  @@index([periodYear, periodMonth])
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  description String
+  amount      Decimal @db.Decimal(14, 2)
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  paymentNumber     String        @unique
+  invoiceId         String
+  residentId        String?
+  amount            Decimal       @db.Decimal(14, 2)
+  method            PaymentMethod
+  paidAt            DateTime
+  verifiedAt        DateTime?
+  verifiedBy        String?
+  status            PaymentStatus @default(PENDING)
+  notes             String?
+  externalReference String?       @unique
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  invoice           Invoice       @relation(fields: [invoiceId], references: [id])
+  resident          Resident?     @relation(fields: [residentId], references: [id])
+  proof             PaymentProof?
+  receipt           Receipt?
+
+  @@index([invoiceId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+model PaymentProof {
+  id        String   @id @default(uuid())
+  paymentId String   @unique
+  fileUrl   String
+  fileName  String
+  fileType  String
+  fileSize  Int
+  createdAt DateTime @default(now())
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+model Receipt {
+  id            String   @id @default(uuid())
+  receiptNumber String   @unique
+  paymentId     String   @unique
+  invoiceId     String   @unique
+  issuedAt      DateTime @default(now())
+  pdfUrl        String?
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  payment       Payment  @relation(fields: [paymentId], references: [id])
+}
+
+model IncomeTransaction {
+  id                String   @id @default(uuid())
+  transactionNumber String   @unique
+  date              DateTime
+  category          String
+  description       String
+  amount            Decimal  @db.Decimal(14, 2)
+  referenceId       String?
+  isPublic          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  @@index([date])
+  @@index([category])
+}
+
+model ExpenseTransaction {
+  id                String   @id @default(uuid())
+  transactionNumber String   @unique
+  date              DateTime
+  category          String
+  description       String
+  amount            Decimal  @db.Decimal(14, 2)
+  receiptUrl        String?
+  isPublic          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  @@index([date])
+  @@index([category])
+}
+
+model Complaint {
+  id          String            @id @default(uuid())
+  residentId  String
+  houseId     String
+  title       String
+  description String
+  category    String
+  location    String?
+  priority    String?
+  status      ComplaintStatus   @default(NEW)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  house       House             @relation(fields: [houseId], references: [id])
+  resident    Resident          @relation(fields: [residentId], references: [id])
+  updates     ComplaintUpdate[]
+
+  @@index([residentId])
+  @@index([status])
+}
+
+model ComplaintUpdate {
+  id          String          @id @default(uuid())
+  complaintId String
+  status      ComplaintStatus
+  message     String
+  photoUrl    String?
+  createdAt   DateTime        @default(now())
+  complaint   Complaint       @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+model Announcement {
+  id             String    @id @default(uuid())
+  title          String
+  content        String
+  imageUrl       String?
+  attachmentUrl  String?
+  publishAt      DateTime  @default(now())
+  expiresAt      DateTime?
+  targetAudience UserRole?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([publishAt])
+  @@index([expiresAt])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  module    String
+  recordId  String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([module])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model DocumentSequence {
+  key          String @id
+  lastSequence Int    @default(0)
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  RESIDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum HouseStatus {
+  OWNER_OCCUPIED
+  RENTED
+  VACANT
+  UNSOLD
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PENDING_VERIFICATION
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  QRIS
+  VIRTUAL_ACCOUNT
+  CASH
+  OTHER
+}
+
+enum ComplaintStatus {
+  NEW
+  IN_PROGRESS
+  FOLLOW_UP
+  RESOLVED
+  REJECTED
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum NotificationType {
+  INVOICE_CREATED
+  PAYMENT_SUBMITTED
+  PAYMENT_VERIFIED
+  PAYMENT_REJECTED
+  DUE_REMINDER
+  OVERDUE
+  COMPLAINT_UPDATE
+  ANNOUNCEMENT
+  GENERAL
+}

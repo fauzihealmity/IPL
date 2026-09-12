@@ -1,0 +1,46 @@
+"use client";
+
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { regenerateReceiptPdf } from "@/actions/payment.actions";
+import { Button } from "@/components/ui/button";
+import { FileText, Loader2 } from "lucide-react";
+
+export function RegenerateReceiptButton({
+  receiptId,
+}: {
+  receiptId: string;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function handleClick() {
+    startTransition(async () => {
+      const result = await regenerateReceiptPdf(receiptId);
+
+      if (result.success) {
+        toast.success(result.message);
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Gagal membuat PDF kwitansi.");
+      }
+    });
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={handleClick}
+      disabled={isPending}
+    >
+      {isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <FileText className="h-4 w-4" />
+      )}
+      {isPending ? "Membuat..." : "Buat PDF"}
+    </Button>
+  );
+}
