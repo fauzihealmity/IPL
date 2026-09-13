@@ -1,5 +1,6 @@
 "use client";
 
+import { UserRole } from "@prisma/client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
@@ -89,8 +90,24 @@ function NavList({ items }: { items: NavItem[] }) {
   );
 }
 
-export function AdminSidebarNav() {
-  return <NavList items={ADMIN_NAV_ITEMS} />;
+export function AdminSidebarNav({
+  role,
+}: {
+  role: UserRole;
+}) {
+  const items =
+    role === UserRole.SUPER_ADMIN
+      ? [
+          ...ADMIN_NAV_ITEMS,
+          {
+            href: "/admin/advertisements",
+            label: "Iklan",
+            icon: Megaphone,
+          },
+        ]
+      : ADMIN_NAV_ITEMS;
+
+  return <NavList items={items} />;
 }
 
 export function ResidentSidebarNav() {

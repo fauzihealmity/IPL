@@ -17,9 +17,8 @@ export default async function AdminLayout({
           <p className="text-lg font-bold text-primary">Mutiara Cahaya</p>
           <p className="text-xs text-muted-foreground">Panel Admin</p>
         </div>
-        <AdminSidebarNav />
+        <AdminSidebarNav role={session.user.role} />
       </aside>
-
       <div className="flex flex-1 flex-col">
         <Topbar
           userName={session.user.name}

@@ -300,6 +300,25 @@ model DocumentSequence {
   lastSequence Int    @default(0)
 }
 
+model Advertisement {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  imageUrl    String?
+  targetUrl   String?
+  isActive    Boolean  @default(true)
+  startAt     DateTime?
+  endAt       DateTime?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([startAt])
+  @@index([endAt])
+  @@index([sortOrder])
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN

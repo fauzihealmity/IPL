@@ -1,6 +1,12 @@
 import { requireResident } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/shared/badge";
 import { Button } from "@/components/ui/button";
 import { InvoiceStatus, ComplaintStatus } from "@prisma/client";
@@ -45,13 +51,41 @@ export default async function ResidentDashboardPage() {
   const activeComplaints = await prisma.complaint.count({
     where: {
       residentId,
-      status: { in: [ComplaintStatus.NEW, ComplaintStatus.IN_PROGRESS, ComplaintStatus.FOLLOW_UP] },
+      status: {
+        in: [
+          ComplaintStatus.NEW,
+          ComplaintStatus.IN_PROGRESS,
+          ComplaintStatus.FOLLOW_UP,
+        ],
+      },
     },
   });
 
   const latestAnnouncement = await prisma.announcement.findFirst({
-    where: { publishAt: { lte: now }, OR: [{ expiresAt: null }, { expiresAt: { gte: now } }] },
+    where: {
+      publishAt: { lte: now },
+      OR: [{ expiresAt: null }, { expiresAt: { gte: now } }],
+    },
     orderBy: { publishAt: "desc" },
+  });
+
+  const activeAdvertisements = await prisma.advertisement.findMany({
+    where: {
+      isActive: true,
+      AND: [
+        {
+          OR: [{ startAt: null }, { startAt: { lte: now } }],
+        },
+        {
+          OR: [{ endAt: null }, { endAt: { gte: now } }],
+        },
+      ],
+    },
+    orderBy: [
+      { sortOrder: "asc" },
+      { createdAt: "desc" },
+    ],
+    take: 5,
   });
 
   return (
@@ -63,19 +97,85 @@ export default async function ResidentDashboardPage() {
         </p>
       </div>
 
+      {activeAdvertisements.length > 0 && (
+        <div className="space-y-3">
+          {activeAdvertisements.map((ad) => {
+            const imageUrl = ad.imageUrl
+              ? `/api/files/${ad.imageUrl
+                  .split("/")
+                  .map((segment) => encodeURIComponent(segment))
+                  .join("/")}`
+              : null;
+
+            const content = (
+              <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                {imageUrl && (
+                  <div
+                    className="h-36 w-full bg-cover bg-center sm:h-44 md:h-52"
+                    style={{
+                      backgroundImage: `url("${imageUrl}")`,
+                    }}
+                    aria-label={ad.title}
+                  />
+                )}
+
+                <CardContent className={imageUrl ? "pt-4" : "pt-5"}>
+                  <h2 className="font-semibold">{ad.title}</h2>
+
+                  {ad.description && (
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                      {ad.description}
+                    </p>
+                  )}
+
+                  {ad.targetUrl && (
+                    <p className="mt-2 text-sm font-medium text-primary">
+                      Lihat selengkapnya →
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+
+            return ad.targetUrl ? (
+              <a
+                key={ad.id}
+                href={ad.targetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block"
+              >
+                {content}
+              </a>
+            ) : (
+              <div key={ad.id}>{content}</div>
+            );
+          })}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>IPL Bulan Ini</CardTitle>
         </CardHeader>
+
         <CardContent>
           {currentInvoice ? (
             <>
-              <div className="text-2xl font-bold">{formatRupiah(Number(currentInvoice.totalAmount))}</div>
+              <div className="text-2xl font-bold">
+                {formatRupiah(Number(currentInvoice.totalAmount))}
+              </div>
+
               <p className="mt-1 text-sm text-muted-foreground">
-                Jatuh tempo {format(currentInvoice.dueDate, "d MMMM yyyy", { locale: id })}
+                Jatuh tempo{" "}
+                {format(currentInvoice.dueDate, "d MMMM yyyy", {
+                  locale: id,
+                })}
               </p>
+
               <div className="mt-3 flex items-center gap-3">
                 <StatusBadge status={currentInvoice.status} />
+
                 {currentInvoice.status !== InvoiceStatus.PAID && (
                   <Button asChild size="sm">
                     <Link href="/resident/payments">Bayar Sekarang</Link>
@@ -96,11 +196,15 @@ export default async function ResidentDashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription>Total Tunggakan</CardDescription>
           </CardHeader>
+
           <CardContent>
             <div className="text-lg font-bold">
               {formatRupiah(Number(arrears._sum.totalAmount ?? 0))}
             </div>
-            <p className="text-xs text-muted-foreground">{arrears._count} tagihan tertunggak</p>
+
+            <p className="text-xs text-muted-foreground">
+              {arrears._count} tagihan tertunggak
+            </p>
           </CardContent>
         </Card>
 
@@ -108,16 +212,24 @@ export default async function ResidentDashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription>Pembayaran Terakhir</CardDescription>
           </CardHeader>
+
           <CardContent>
             {lastPayment ? (
               <>
-                <div className="text-lg font-bold">{formatRupiah(Number(lastPayment.amount))}</div>
+                <div className="text-lg font-bold">
+                  {formatRupiah(Number(lastPayment.amount))}
+                </div>
+
                 <p className="text-xs text-muted-foreground">
-                  {format(lastPayment.paidAt, "d MMMM yyyy", { locale: id })}
+                  {format(lastPayment.paidAt, "d MMMM yyyy", {
+                    locale: id,
+                  })}
                 </p>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">Belum ada riwayat pembayaran.</p>
+              <p className="text-sm text-muted-foreground">
+                Belum ada riwayat pembayaran.
+              </p>
             )}
           </CardContent>
         </Card>
@@ -126,6 +238,7 @@ export default async function ResidentDashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription>Pengaduan Aktif</CardDescription>
           </CardHeader>
+
           <CardContent>
             <div className="text-lg font-bold">{activeComplaints}</div>
           </CardContent>
@@ -136,16 +249,20 @@ export default async function ResidentDashboardPage() {
         <CardHeader>
           <CardTitle>Pengumuman Terbaru</CardTitle>
         </CardHeader>
+
         <CardContent>
           {latestAnnouncement ? (
             <>
               <p className="font-medium">{latestAnnouncement.title}</p>
+
               <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                 {latestAnnouncement.content}
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">Belum ada pengumuman.</p>
+            <p className="text-sm text-muted-foreground">
+              Belum ada pengumuman.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -158,13 +275,20 @@ type StatusVariant = "success" | "warning" | "destructive" | "secondary";
 const INVOICE_STATUS_MAP = {
   PAID: { label: "LUNAS", variant: "success" },
   UNPAID: { label: "BELUM LUNAS", variant: "warning" },
-  PENDING_VERIFICATION: { label: "MENUNGGU VERIFIKASI", variant: "secondary" },
+  PENDING_VERIFICATION: {
+    label: "MENUNGGU VERIFIKASI",
+    variant: "secondary",
+  },
   OVERDUE: { label: "TERLAMBAT", variant: "destructive" },
   CANCELLED: { label: "DIBATALKAN", variant: "secondary" },
-} as const satisfies Record<InvoiceStatus, { label: string; variant: StatusVariant }>;
+} as const satisfies Record<
+  InvoiceStatus,
+  { label: string; variant: StatusVariant }
+>;
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
   const { label, variant } = INVOICE_STATUS_MAP[status];
+
   return <Badge variant={variant}>{label}</Badge>;
 }
 
