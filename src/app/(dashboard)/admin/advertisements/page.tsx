@@ -158,9 +158,7 @@ export default async function AdminAdvertisementsPage({
 
                           <ConfirmDeleteButton
                             itemLabel={advertisement.title}
-                            onConfirm={() =>
-                              deleteAdvertisement(advertisement.id)
-                            }
+                            onConfirm={deleteAdvertisement.bind(null, advertisement.id)}
                           />
                         </div>
                       </TableCell>
