@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/shared/badge";
 import { Button } from "@/components/ui/button";
+import { AdvertisementCarousel } from "@/components/advertisements/advertisement-carousel";
 import { InvoiceStatus, ComplaintStatus } from "@prisma/client";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -98,60 +99,15 @@ export default async function ResidentDashboardPage() {
       </div>
 
       {activeAdvertisements.length > 0 && (
-        <div className="space-y-3">
-          {activeAdvertisements.map((ad) => {
-            const imageUrl = ad.imageUrl
-              ? `/api/files/${ad.imageUrl
-                  .split("/")
-                  .map((segment) => encodeURIComponent(segment))
-                  .join("/")}`
-              : null;
-
-            const content = (
-              <Card className="overflow-hidden transition-shadow hover:shadow-md">
-                {imageUrl && (
-                  <div
-                    className="h-36 w-full bg-cover bg-center sm:h-44 md:h-52"
-                    style={{
-                      backgroundImage: `url("${imageUrl}")`,
-                    }}
-                    aria-label={ad.title}
-                  />
-                )}
-
-                <CardContent className={imageUrl ? "pt-4" : "pt-5"}>
-                  <h2 className="font-semibold">{ad.title}</h2>
-
-                  {ad.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                      {ad.description}
-                    </p>
-                  )}
-
-                  {ad.targetUrl && (
-                    <p className="mt-2 text-sm font-medium text-primary">
-                      Lihat selengkapnya →
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-
-            return ad.targetUrl ? (
-              <a
-                key={ad.id}
-                href={ad.targetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                {content}
-              </a>
-            ) : (
-              <div key={ad.id}>{content}</div>
-            );
-          })}
-        </div>
+        <AdvertisementCarousel
+          advertisements={activeAdvertisements.map((ad) => ({
+            id: ad.id,
+            title: ad.title,
+            description: ad.description,
+            imageUrl: ad.imageUrl,
+            targetUrl: ad.targetUrl,
+          }))}
+        />
       )}
 
       <Card>
