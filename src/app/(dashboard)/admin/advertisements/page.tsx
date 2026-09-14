@@ -110,6 +110,7 @@ export default async function AdminAdvertisementsPage({
                             alt={advertisement.title}
                             width={96}
                             height={48}
+                            unoptimized
                             className="h-12 w-24 rounded-md object-cover"
                           />
                         ) : (
